@@ -7,6 +7,7 @@ from utils.loop_timer import LoopTimer
 from threading import Thread
 import os
 import json
+import argparse
 from datetime import datetime as dt
 from predictor import Predictor
 from utils.myMsgLogger import MyMsgLogger
@@ -21,11 +22,13 @@ def get_ser(folder, dev: str):
                 "/dev/serial/by-id",
                 f"usb-SAMSUNG_SAMSUNG_Android_{device_to_serial[dev]}-if00-port0",
             )
-        else:
+        elif dev.startswith("qc"):
             return os.path.join(
                 "/dev/serial/by-id",
                 f"usb-Quectel_RM500Q-GL_{device_to_serial[dev]}-if00-port0",
             )
+        else:
+            return("/tmp/ttyV1")
 
 
 class Runner:
@@ -270,13 +273,17 @@ if __name__ == "__main__":
             "nr_phy_Num_Cells",
         ]
     )
-    
+    parser = argparse.ArgumentParser(description="A script with a -d parameter.")
+    parser.add_argument('-d', '--dev', required=True, help="device name")
+    args = parser.parse_args()
+
     predictor = RLF_Xgboost_Predictor()
     runner = DefaultRunner(
-        ser="/tmp/ttyV1",
+        ser=get_ser(os.path.dirname(__file__), args.dev),
         predictor=predictor,
         feature_extractor=feature_extractor,
-        predict_interval = 0.1
+        predict_interval = 0.1,
+        actor = TestActor()
     )
 
     try:

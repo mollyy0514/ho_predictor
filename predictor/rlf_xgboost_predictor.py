@@ -7,7 +7,7 @@ class RLF_Xgboost_Predictor(Predictor):
         super().__init__()
         self.model = xgb.Booster()
         self.model.load_model(
-            "/home/fourcolor/Documents/ho_preditor/xgb_boost_scale_pos_weight_500_0.1_interval_3s_3s.json"
+            "./xgb_boost_scale_pos_weight_500_0.1_interval_3s_3s.json"
         )
         print('loading model',flush=True)
         self.fs = open("out.txt",'w')
@@ -60,5 +60,6 @@ class RLF_Xgboost_Predictor(Predictor):
             y = self.model.predict(x)
             if y > 0.5:
                 print(time.time(), ": Close to RLF !!!")
-                return True
-        return False
+                # return True
+        # return False
+        return y
