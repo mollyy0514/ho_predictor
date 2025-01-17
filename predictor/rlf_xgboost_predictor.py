@@ -2,6 +2,7 @@ from .predictor import Predictor
 import xgboost as xgb
 import numpy as np
 import time
+import datetime as dt
 class RLF_Xgboost_Predictor(Predictor):
     def __init__(self):
         super().__init__()
@@ -10,9 +11,10 @@ class RLF_Xgboost_Predictor(Predictor):
             "./xgb_boost_scale_pos_weight_500_0.1_interval_3s_3s.json"
         )
         print('loading model',flush=True)
-        self.fs = open("out.txt",'w')
+        # self.fs = open("out.txt",'w')
+        # self.fs.write("Timestamp,dev,prob\n")
 
-    def predict(self, x_in):
+    def predict(self, fs, dev, x_in):
         all_keys = [
             "LTE_HO",
             "MN_HO",
@@ -50,16 +52,20 @@ class RLF_Xgboost_Predictor(Predictor):
             "lte_phy_Number_of_Neighbor_Cells",
             "nr_phy_Num_Cells",
         ]
-        
-        if len(x_in) > 0 and x_in[-1]['lte_phy_EARFCN'] != 0:
+        # if len(x_in) > 0 and x_in[-1]['lte_phy_EARFCN'] != 0:
+        if len(x_in) > 0:
             x_in = np.array([
                 [d.get(key, np.nan) for key in all_keys]
                 for d in x_in
             ]).flatten().reshape(1,-1)
             x = xgb.DMatrix(x_in)
             y = self.model.predict(x)
+            fs.write(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")},{dev},{y[0]}\n')
             if y > 0.5:
-                print(time.time(), ": Close to RLF !!!")
+                print(dev, dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), ": Close to RLF !!!")
                 # return True
         # return False
-        return y
+        try:
+            return y[0]
+        except:
+            return 0

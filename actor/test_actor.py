@@ -3,11 +3,14 @@ import json
 import subprocess
 import multiprocessing
 import numpy as np
+import datetime as dt
 class TestActor:
     def __init__(self) -> None:
         pass
-    def do_action(self, dev, pred_output):
-        pairs = [dev, {"rlf": pred_output}, {"lte_cls": 0}, {"nr_cls": 0}, {}, []]
+    def do_action(self, dev, pred_output, ho_info):
+        pairs = [dev, {"rlf": pred_output}, {"lte_cls": 0}, {"nr_cls": 0}, {"MN": None, "earfcn": None, "band": None, "SN": None}, ho_info]
+        # if pairs[5] != []:
+        #     print(dt.datetime.today(), pairs)
         script_folder = os.path.dirname(os.path.abspath(__file__))
         parent_folder = os.path.dirname(script_folder)
         local_file_path = os.path.join('/home/wmnlab/Data', f'record_pair.json')
@@ -15,7 +18,7 @@ class TestActor:
         send_proc = multiprocessing.Process(target=self.send_pairs_to_phone, args=(pairs, parent_folder, local_file_path, android_file_path, dev))
         send_proc.start()
 
-    def send_pairs_to_phone(pairs, parent_folder, local_file_path, android_file_path, dev):
+    def send_pairs_to_phone(self, pairs, parent_folder, local_file_path, android_file_path, dev):
         try:
             def convert_item(item):
                 if isinstance(item, (np.float32, np.float64)):
@@ -23,7 +26,6 @@ class TestActor:
                 elif isinstance(item, dict):
                     return {key: (float(value) if isinstance(value, (np.float32, np.float64)) else value) for key, value in item.items()}
                 return item
-
             converted_list = [convert_item(item) for item in pairs]
 
             # Step 1: Overwrite the local file with the new string

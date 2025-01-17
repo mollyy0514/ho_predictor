@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Number of simultaneous executions
-device_list="sm02 sm08"
+device_list="sm02 sm05"
 mypassword=`cat password.txt`
 
 # Loop to start multiple instances
