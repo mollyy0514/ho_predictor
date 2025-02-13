@@ -138,12 +138,10 @@ class Runner:
         now = dt.datetime.today()
         ho_keys = ['RLF', 'SN_setup', 'MN_HO', 'SN_HO']
         if self.ho_info != [] and (now - dt.datetime.strptime(self.ho_info[1], "%Y-%m-%d %H:%M:%S.%f")) > datetime.timedelta(seconds=3):
-            print("times up")
             self.ho_info = []
         for i, data in enumerate(list(x_in)):
             for key in ho_keys:
                 if data[key]:
-                    print(i, key)
                     self.ho_info = [key, now.strftime("%Y-%m-%d %H:%M:%S.%f")]
                     self.actor.do_action(self.dev, pred_output, self.ho_info)
         # # RLF prediction
