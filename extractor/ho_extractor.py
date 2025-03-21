@@ -1,9 +1,7 @@
 from .extractor import *
 from collections import namedtuple
 import time
-import datetime
-
-
+import datetime as dt
 class HO_Extractor(Extractor):
     def __init__(self, dev=""):
         super().__init__(dev)
@@ -17,7 +15,8 @@ class HO_Extractor(Extractor):
             "RLF": 0,
             "SCG_RLF": 0,
         }
-
+        self.dev = dev
+        
     def parse_mi_ho(self, df):
         HO = namedtuple("HO", "start", defaults=(None))
 
@@ -71,15 +70,11 @@ class HO_Extractor(Extractor):
 
         for k, v in D.items():
             if len(v) > 0:
-                for i in v:
-                    dt = datetime.datetime.strptime(i.start, "%Y-%m-%d %H:%M:%S.%f")
-                    print(
-                        self.dev,
-                        time.mktime(dt.timetuple())
-                        + (dt.microsecond / 1000000.0)
-                        + 8 * 60 * 60,
-                        f"{k} happened!!!",
-                    )
+                with open('output.txt', 'a') as file:
+                    # Write the variable to the file
+                    file.write(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")},{k}\n')
+                print(self.dev, dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), f"{k} happened!!!")
+            
         return D
 
     def extract(self, df) -> dict:

@@ -3,6 +3,8 @@ import xgboost as xgb
 import numpy as np
 import time
 import random
+import datetime as dt
+
 class RLF_Xgboost_Predictor(Predictor):
     def __init__(self, model_path, dev = ""):
         random.seed(time.time())
@@ -13,7 +15,7 @@ class RLF_Xgboost_Predictor(Predictor):
         )
         print('loading model',flush=True)
 
-    def predict(self, x_in):
+    def predict(self, fs, dev, x_in):
         all_keys = [
             "LTE_HO",
             "MN_HO",
@@ -61,7 +63,8 @@ class RLF_Xgboost_Predictor(Predictor):
             y = self.model.predict(x)
             
             y = [1 if random.random() > 0.9 else 0]
-            if y[0] > 0.5:
-                print(self.dev, time.time(), ": Close to RLF !!!")
+            if y > 0.5:
+                fs.write(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")},{dev},{y[0]}\n')
+                print(dev, dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), ": Close to RLF !!!")
             return y[0], x_in[-1]['lte_phy_EARFCN']
         return 0, 0

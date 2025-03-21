@@ -7,7 +7,9 @@ from utils.loop_timer import LoopTimer
 from threading import Thread
 import os
 import json
+import argparse
 from datetime import datetime as dt
+import datetime
 from predictor import Predictor
 from utils.myMsgLogger import MyMsgLogger
 
@@ -21,17 +23,13 @@ def get_ser(folder, dev: str):
                 "/dev/serial/by-id",
                 f"usb-SAMSUNG_SAMSUNG_Android_{device_to_serial[dev]}-if00-port0",
             )
-        elif dev.startswith('qc'):
+        elif dev.startswith("qc"):
             return os.path.join(
                 "/dev/serial/by-id",
                 f"usb-Quectel_RM500Q-GL_{device_to_serial[dev]}-if00-port0",
             )
         else:
-            return os.path.join(
-                '/tmp',
-                device_to_serial[dev]
-            )
-
+            return("/dev/ttyV1")
 
 
 class Runner:
@@ -40,6 +38,7 @@ class Runner:
         feature_extractor: FeatureExtractor,
         predictor: Predictor,
         actor: Actor,
+        dev: str,
         ser: str,
         log_dir: str = None,
         baudrate=9600,
@@ -59,13 +58,29 @@ class Runner:
         self.main_task = Thread(target=self.run_task, daemon=True)
 
         self.log_dir = self.create_log_dir(log_dir)
+        self.fs = open(f'{self.log_dir}/{dev}_out.txt','a')
+        self.fs.write("Timestamp,dev,prob\n")
+        # now = dt.today()
+        now = dt.datetime.today()
+        n = [
+            now.year,
+            now.month,
+            now.day,
+            now.hour,
+            now.minute,
+            now.second,
+        ]
+        n = [str(x).zfill(2) for x in n]
+        n = "-".join(n[:3]) + "_" + "-".join(n[3:])
         self.mi2log_log_path = os.path.join(
-            self.log_dir,
-            "diag_log_{}_{}.mi2log".format(ser.replace('/','_'), os.path.basename(self.log_dir)),
+            self.log_dir, "mi2log",
+            # "diag_log_{}_{}.mi2log".format(ser.replace('/','_'), os.path.basename(self.log_dir)),
+            "diag_log_{}_{}.mi2log".format(dev, os.path.basename(n)),
         )
         self.xml_log_path = os.path.join(
-            self.log_dir,
-            "diag_log_{}_{}.xml".format(ser.replace('/','_'), os.path.basename(self.log_dir)),
+            self.log_dir, "mi2log_xml",
+            # "diag_log_{}_{}.xml".format(ser.replace('/','_'), os.path.basename(self.log_dir)),
+            "diag_log_{}_{}.xml".format(dev, os.path.basename(n)),
         )
 
         dumper = MyMsgLogger()
@@ -76,10 +91,13 @@ class Runner:
         self.src.save_log_as(self.mi2log_log_path)
 
         self.ser = ser
-
+        self.dev = dev
+        self.ho_info = []
+        
     def create_log_dir(self, log_dir):
         if log_dir is None:
-            now = dt.today()
+            # now = dt.today()
+            now = dt.datetime.today()
             n = [
                 now.year,
                 now.month,
@@ -91,8 +109,16 @@ class Runner:
             n = [str(x).zfill(2) for x in n]
             n = "-".join(n[:3]) + "_" + "-".join(n[3:])
             os.umask(0)
-            log_dir = os.path.join(os.path.dirname(__file__), "log", str(n))
-        os.makedirs(log_dir, exist_ok=True)
+            # log_dir = os.path.join(os.path.dirname(__file__), "log", str(n))
+            log_dir = os.path.join("/home/wmnlab/Desktop/experiment_log", str(n[:10]))
+            print(log_dir)
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+            os.makedirs(os.path.join(log_dir, "mi2log"), exist_ok=True)
+            os.makedirs(os.path.join(log_dir, "mi2log_xml"), exist_ok=True)
+        except:
+            print("no")
+            exit(0)
         return log_dir
 
     def run(self):
@@ -100,88 +126,32 @@ class Runner:
         self.feature_extractor.run()
         print('task running', flush=True)
         self.src.run()
-        # print('task running', flush=True)
 
     def run_task(self):
         self.src.run()
 
     def predict_task(self):
         x_in = self.feature_extractor.get_feature_dict()
-        pred_output = self.predictor.predict(x_in)
-        self.actor.do_action(pred_output)
-
-
-class DeviceRunner(Runner):
-    def __init__(
-        self,
-        dev: str,
-        verbose: float,
-        feature_extractor: FeatureExtractor,
-        log_dir: str = None,
-        baudrate=9600,
-        predict_interval: float = 1,
-        predictor: Predictor = Predictor(),
-        actor: Actor = Actor(),
-    ) -> None:
-        rrc_ota_parser = RRC_OTA_Parser()
-        lte_ss_parser = Lte_Signal_Strength_Parser()
-        nr_ss_parser = NR_Signal_Strength_Parser()
-
-        ho_extractor = HO_Extractor()
-        ho_extractor.set_source_parser(rrc_ota_parser)
-
-        mr_extractor = MR_Extractor()
-        mr_extractor.set_source_parser(rrc_ota_parser)
-
-        lte_ss_extractor = Lte_Signal_Strength_Extractor()
-        lte_ss_extractor.set_source_parser(lte_ss_parser)
-
-        nr_ss_extractor = NR_Signal_Strength_Extractor()
-        nr_ss_extractor.set_source_parser(nr_ss_parser)
-
-        feature_extractor.add_parser(rrc_ota_parser)
-        feature_extractor.add_parser(lte_ss_parser)
-        feature_extractor.add_parser(nr_ss_parser)
-        feature_extractor.add_extractor(ho_extractor)
-        feature_extractor.add_extractor(mr_extractor)
-        feature_extractor.add_extractor(lte_ss_extractor)
-        feature_extractor.add_extractor(nr_ss_extractor)
-        super().__init__(
-            feature_extractor,
-            predictor,
-            actor,
-            get_ser(os.path.dirname(__file__), dev),
-            log_dir,
-            baudrate,
-            predict_interval,
-        )
-
-        verbose = min(verbose, 0.1)
-
-        self.verbose_task = LoopTimer(predict_interval, self.predict_task)
-
-    def show_ho(self):
-        HOs = [
-            "LTE_HO",
-            "MN_HO",
-            "SN_setup",
-            "SN_Rel",
-            "SN_HO",
-            "Conn_Req",
-            "RLF",
-            "SCG_RLF",
-        ]
-        self.feature_extractor.get_feature_dict()
-        features = {k: v for k, v in features.items() if k in HOs}
-
-        for k, v in features.items():
-            if v == 1:
-                print(f"{self.ser}: HO {k} happened!!!!!")
-
+        # RLF prediction
+        pred_output = self.predictor.predict(self.fs, self.dev, x_in)
+        # Timely RLF event (ho_keys & ho_info can be extend)
+        now = dt.datetime.today()
+        ho_keys = ['RLF', 'SN_setup', 'MN_HO', 'SN_HO']
+        if self.ho_info != [] and (now - dt.datetime.strptime(self.ho_info[1], "%Y-%m-%d %H:%M:%S.%f")) > datetime.timedelta(seconds=3):
+            self.ho_info = []
+        for i, data in enumerate(list(x_in)):
+            for key in ho_keys:
+                if data[key]:
+                    self.ho_info = [key, now.strftime("%Y-%m-%d %H:%M:%S.%f")]
+                    self.actor.do_action(self.dev, pred_output, self.ho_info)
+        # # RLF prediction
+        # pred_output = self.predictor.predict(self.fs, self.dev, x_in)
+        self.actor.do_action(self.dev, pred_output, self.ho_info)
 
 class DefaultRunner(Runner):
     def __init__(
         self,
+        dev: str,
         ser: str,
         # verbose: float,
         feature_extractor: FeatureExtractor,
@@ -195,6 +165,7 @@ class DefaultRunner(Runner):
             feature_extractor,
             predictor,
             actor,
+            args.dev,
             ser,
             log_dir,
             baudrate,
@@ -210,20 +181,25 @@ if __name__ == "__main__":
     from extractor import *
     from feature_extractor import *
     from predictor.rlf_xgboost_predictor import RLF_Xgboost_Predictor
+    
+    parser = argparse.ArgumentParser(description="A script with a -d parameter.")
+    parser.add_argument('-d', '--dev', required=True, help="device name")
+    args = parser.parse_args()
+    
     rrc_ota_parser = RRC_OTA_Parser()
     lte_ss_parser = Lte_Signal_Strength_Parser()
     nr_ss_parser = NR_Signal_Strength_Parser()
 
-    ho_extractor = HO_Extractor()
+    ho_extractor = HO_Extractor(args.dev)
     ho_extractor.set_source_parser(rrc_ota_parser)
 
-    mr_extractor = MR_Extractor()
+    mr_extractor = MR_Extractor(args.dev)
     mr_extractor.set_source_parser(rrc_ota_parser)
 
-    lte_ss_extractor = Lte_Signal_Strength_Extractor()
+    lte_ss_extractor = Lte_Signal_Strength_Extractor(args.dev)
     lte_ss_extractor.set_source_parser(lte_ss_parser)
 
-    nr_ss_extractor = NR_Signal_Strength_Extractor()
+    nr_ss_extractor = NR_Signal_Strength_Extractor(args.dev)
     nr_ss_extractor.set_source_parser(nr_ss_parser)
 
     feature_extractor = FeatureExtractor(sample_interval_sec=0.1, sample_length_sec = 3)
@@ -234,8 +210,6 @@ if __name__ == "__main__":
     feature_extractor.add_extractor(mr_extractor)
     feature_extractor.add_extractor(lte_ss_extractor)
     feature_extractor.add_extractor(nr_ss_extractor)
-    
-
 
     feature_extractor.set_data_order(
         [
@@ -277,13 +251,14 @@ if __name__ == "__main__":
         ]
     )
     
-    predictor = RLF_Xgboost_Predictor('/home/fourcolor/Documents/ho_predictor/xgb_boost_scale_pos_weight_500_0.1_interval_5s_3s.json')
+    predictor = RLF_Xgboost_Predictor('./xgb_boost_scale_pos_weight_500_0.1_interval_3s_3s.json')
     runner = DefaultRunner(
-        # ser=get_ser('','qc00'),
-        ser='/tmp/ttyV1',
+        dev=args.dev,
+        ser=get_ser(os.path.dirname(__file__), args.dev),
         predictor=predictor,
         feature_extractor=feature_extractor,
-        predict_interval = 0.1
+        predict_interval = 0.1,
+        actor = TestActor()
     )
 
     try:
@@ -292,5 +267,4 @@ if __name__ == "__main__":
             time.sleep(1)
     except Exception as e:
         import traceback
-
         traceback.print_exc()
